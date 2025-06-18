@@ -1,0 +1,36 @@
+program poli
+  implicit none
+  real(8), dimension(1000000) :: obs
+  real(8) :: obsmean, tau,O2,sigma
+  integer :: i,j,ib,i1,j1,iO,nO
+
+  do i = 440,500,2
+    obsmean = 0.0d0
+    nO = 0
+    do j = 1, 1000000
+      read(i,*)obs(j)
+      obsmean = obsmean + obs(j)
+      nO = nO + 1
+    enddo
+    obsmean = obsmean/1000000
+
+    ib = 2
+    do while(ib .le. 500000)
+      sigma = 0.0d0
+      iO = 1
+      do i1 = 1, nO-ib+1,nO-ib
+        O2 = 0.0d0
+        do j1 = i1, i1+ib-1
+          O2 = O2 + obs(j1)
+        enddo
+        O2 = O2/ib
+        sigma = sigma + (O2 - obsmean)**2
+        iO = iO + 1
+      enddo
+      sigma = sigma/(iO-1)
+      write(1000+i,*)ib, dsqrt(sigma*ib/nO)
+      ib=ib+1
+    enddo
+  enddo
+
+end program
