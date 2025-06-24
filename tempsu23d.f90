@@ -1,14 +1,14 @@
 program su2
 	implicit none
-	integer, parameter :: Ls = 9
+	integer, parameter :: Ls = 12
   integer, parameter :: Lt = 4
-	integer, parameter :: iseed1 = 10, Nth = 10000, estat = 10000, Nc = 2, tau = 200, dat = Nth/tau
+	integer, parameter :: iseed1 = 10, Nth = 10000, estat = 100000, Nc = 2, tau = 200, dat = Nth/tau
 	real(8), parameter :: pi = 4.0d0*atan(1.0d0)
 	
 	integer :: j,k,k1,k2,mu,n1,n2,n3,n4,nu,cont,norm,ac,total,bin,datum,ibetas
 	real(8), dimension(Ls,Ls) :: loop, loopmean, loopli
 	real(8), dimension(4) :: x, identidade, ax1,ax1d
-	real(8), dimension(4,4,Ls,Ls,Lt) :: U, Uaux
+	real(8), dimension(4,3,Ls,Ls,Lt) :: U, Uaux
 	real(8) :: t1,t2,modr1,det1,t3,T,betas, beta, delta
 	real(8) :: eoq,dummy,mod2,Vol,obs,obsmean,obssigma,omf
   real(8), dimension(dat) :: obsval
@@ -18,22 +18,7 @@ program su2
 	real(8), dimension(5) :: r1
   integer, dimension(3) :: pos
   complex(8) :: z, id
-
-  delta = 0.02d0
-  do while (betas .lt. 3.0d0)
-
-  beta = 1.98d0
-  betas = beta + delta
-  ibetas = 200*betas
-    print*, "O valor de betas é", betas
-    Vol = Lt*Ls**3
-    norm = 12*Vol
-    open(11,file='wilsontherm.dat')
-    
-    
-    T = 1.0d0/Lt
-
-    call srand(iseed1)
+  ibetas = 100
 
     do j = 1,Ls
       nn(1,j) = 1 + mod(j,Ls)
@@ -45,10 +30,26 @@ program su2
       nn(4,j) = Lt - mod(Lt-j+1,Lt)
     enddo
     
+  delta = 0.00d0
+  beta = 3.00d0
+  do while (betas .lt. 10.0d0)
+
+    betas = beta + delta
+    ibetas = ibetas + 1
+    print*, "O valor de betas é", betas
+    Vol = Lt*Ls**2
+    norm = 12*Vol
+    open(11,file='wilsontherm.dat')
+    
+    
+    T = 1.0d0/Lt
+
+    call srand(iseed1)
+
     do n1 = 1, Ls !Configuração inicial com identidade nas matrizes
       do n2 = 1, Ls
           do n4 = 1, Lt
-            do mu = 1,4
+            do mu = 1,3
               U(:,mu,n1,n2,n4) = (/0.0d0,0.0d0,0.0d0,1.0d0/)
             enddo
           enddo
@@ -63,7 +64,7 @@ program su2
     call cpu_time(t1)
     do j = 1, Nth
       dummy = 0.0d0
-      call calclooppolyakov(U,pos,nn,dummy)
+      call calclooppolyakov(U,nn,dummy)
 !     call calcloopntnl(U,1,1,nn,dummy)
       call banhotermico(U,betas,nn)
  !    write(11,*)j,dummy/norm
@@ -116,7 +117,7 @@ program su2
 !   	print*, "O tempo dos dados estatísticos é", t3-t2
    	
     loop(1,1) = 0.0d0
-    call calclooppolyakov(U,pos,nn,loop(1,1))
+    call calclooppolyakov(U,nn,loop(1,1))
 !   call calcloopntnl(U,1,1,nn,loop(1,1))
     loop(1,1) = loop(1,1)/norm
     
@@ -125,7 +126,7 @@ program su2
     call transform_gauge(U,nn)
     
     loop(1,1) = 0.0d0
-    call calclooppolyakov(U,pos,nn,loop(1,1))
+    call calclooppolyakov(U,nn,loop(1,1))
 !   call calcloopntnl(U,1,1,nn,loop(1,1))
     loop(1,1) = loop(1,1)/norm
     
@@ -143,12 +144,14 @@ program su2
   !      enddo
   !    enddo
     !
-    
+    call cpu_time(t1) 
     do j = 1, estat
       call banhotermico(U,betas,nn)
-      call calclooppolyakov(U,pos,nn,obs)
+      call calclooppolyakov(U,nn,obs)
       write(ibetas,*)obs
     enddo
+    call cpu_time(t2)
+    print*, "O tempo para as estatísticas é ", t2-t1
     delta = delta + 0.1d0
   enddo
 
@@ -199,17 +202,17 @@ subroutine  metropolis(U,nn,beta,ac,total)
 	
 	real(8), parameter :: eps = 0.1d0
 	
-	real(8), dimension(4,4,Ls,Ls,Lt) :: U	
+	real(8), dimension(4,3,Ls,Ls,Lt) :: U
 	real(8), dimension(4) :: Um, dUm, Am
 	integer, dimension(4,Ls) :: nn
-	integer, dimension(3) :: pos, n	
-	integer :: ac,total,mu,L
+	integer, dimension(3) :: pos, n
+	integer :: ac,total,mu
 	real(8) :: deltaS
 	real(8) :: beta
 	
-	do n1 = 1,L
-	  do n2 = 1,L
-	      do n4 = 1,L
+	do n1 = 1,Ls
+	  do n2 = 1,Ls
+	      do n4 = 1,Lt
 		      pos = (/n1,n2,n4/)			
 	        do mu = 1,4
             r1(4) = 1.0d0 - 2.0d0*rand()	
@@ -241,10 +244,10 @@ subroutine  metropolis(U,nn,beta,ac,total)
 	enddo
 end subroutine
 
-subroutine calclooppolyakov(U,pos,nn,obs)
+subroutine calclooppolyakov(U,nn,obs)
 	implicit none
 	
-	real(8), dimension(4,4,Ls,Ls,Lt) :: U	
+	real(8), dimension(4,3,Ls,Ls,Lt) :: U	
 	real(8), dimension(4) :: loop, Ud
 	integer, dimension(3) :: pos, n
 	integer, dimension(4,Ls) :: nn
@@ -258,21 +261,21 @@ subroutine calclooppolyakov(U,pos,nn,obs)
 		      loop = (/0.0d0,0.0d0,0.0d0,1.0d0/)
 		      n  = pos
 		      do k = 1, Lt
-		        call linkmul(loop,U(:,4,n(1),n(2),n(3)),loop)
+            call linkmul(loop,U(:,3,n(1),n(2),n(3)),loop)
 		        n(3) = nn(3,n(3))
 		      enddo
 		      obs = obs + loop(4)
 	  enddo
 	enddo
-  obs = obs/Lt**3
+  obs = obs/Ls**2
 end subroutine
 
 subroutine calcloopntnl(U,nl,nt,nn,obs)
 	implicit none
 	
-	real(8), dimension(4,4,Ls,Ls,Lt) :: U	
+	real(8), dimension(4,3,Ls,Ls,Lt) :: U
 	real(8), dimension(4) :: loop, Ud
-	integer, dimension(3) :: pos, n	
+	integer, dimension(3) :: pos, n
 	integer, dimension(4,Ls) :: nn
   integer :: dmu, dnu, mu, nu
 	integer :: cont,nl,nt,k
@@ -282,7 +285,7 @@ subroutine calcloopntnl(U,nl,nt,nn,obs)
 	  do n2 = 1,Ls
 	      do n4 = 1,Lt
 		      pos = (/n1,n2,n4/)
-	        do mu = 1, 3	
+	        do mu = 1, 3
       dmu = (mu-1)*(mu-2)*3/2-(mu-1)*(mu-3)+(mu-3)*(mu-2)/2
             do nu = 3, mu+1,-1
       dnu = (nu-1)*(nu-2)*3/2-(nu-1)*(nu-3)+(nu-3)*(nu-2)/2
@@ -319,7 +322,7 @@ subroutine grampos(U,Am,mu,pos,nn)
 	implicit none
 	
 	real(8), dimension(4) :: Um, dUm, Am, Ummu, Umnu, Unu, Am1
-	real(8), dimension(4,4,Ls,Ls,Lt) :: U	
+	real(8), dimension(4,3,Ls,Ls,Lt) :: U	
 	integer, dimension(3) :: pos, n, np
 	integer, dimension(4,Ls) :: nn
 	integer :: mu, nu, dmu, dnu
@@ -360,12 +363,12 @@ subroutine transform_gauge(U,nn)
 	implicit none
 	
 	real(8), dimension(4) :: Um, dUm, ident,gd
-	real(8), dimension(4,4,Ls,Ls,Lt) :: U	
+	real(8), dimension(4,3,Ls,Ls,Lt) :: U	
 	real(8), dimension(4,Ls,Ls,Lt) :: g
 	integer, dimension(3) :: pos, n
 	integer, dimension(4,Ls) :: nn
   integer :: dmu
-	
+	  
 	do n1 = 1,Ls
 	  do n2 = 1,Ls
 	      do n4 = 1,Lt
@@ -398,7 +401,7 @@ subroutine banhotermico(U,beta,nn)
 	implicit none
 	
 	real(8) :: beta,alfa,lambda2,mod2,a1,a2,a3,a4
-	real(8), dimension(4,4,Ls,Ls,Lt) :: U
+	real(8), dimension(4,3,Ls,Ls,Lt) :: U
 	real(8), dimension(4) :: Am, ger
 	integer, dimension(3) :: pos, n
 	integer, dimension(4,Ls) :: nn
@@ -448,7 +451,7 @@ end subroutine
 subroutine losalamos(U,Uaux,nn)
   implicit none
 
-  real(8), dimension(4,4,Ls,Ls,Lt) :: U, Uaux
+  real(8), dimension(4,3,Ls,Ls,Lt) :: U, Uaux
 	real(8), dimension(4) :: g,gd,aux,aux1
 	real(8), dimension(3) :: dUx, dUxm, Ufi
 	integer, dimension(3) :: pos, n
@@ -523,7 +526,7 @@ subroutine gluonprop(U,nn,pk)
 	implicit none
 	
 	real(8), dimension(3) :: Ux,aux1,aux2,aux3
-	real(8), dimension(4,4,Ls,Ls,Lt) :: U
+	real(8), dimension(4,3,Ls,Ls,Lt) :: U
 	real(8), dimension(4) :: g,gd,aux
 	integer, dimension(3) :: pos, n
   real(8), dimension(0:Ls-1) :: pk

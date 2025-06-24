@@ -5,11 +5,12 @@
         real(8) :: obsmean, tau,O2,sigma
         integer :: i,j,ib,i1,j1,iO,nO
 
-        do i = 440,500,2
+        do i = 100,172
           obsmean = 0.0d0
           nO = 0
           do j = 1, Nmax
             read(i,*,end=2) obs(j)
+            obs(j) = abs(obs(j))
             obsmean = obsmean + obs(j)
             nO = nO + 1
           enddo
@@ -17,7 +18,7 @@
           obsmean = obsmean/nO
 
           ib = 2
-          do while(ib .le. nO/2)
+          do while(ib .le. 10000)
             sigma = 0.0d0
             iO = 1
             do i1 = 1, nO-ib+1,ib
